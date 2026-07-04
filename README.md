@@ -47,18 +47,18 @@ $ esxcli software vib install -v /tmp/letsencrypt-esxi-dns.vib -f
 Installation Result
    Message: Operation finished successfully.
    Reboot Required: false
-   VIBs Installed: Cnily03_bootbank_letsencrypt-esxi-dns_1.0.0-0.0.0
+   VIBs Installed: Cnily03_bootbank_letsencrypt-esxi-dns_2.0.0-0.0.0
    VIBs Removed:
    VIBs Skipped:
 
 $ esxcli software vib list | grep letsencrypt
-letsencrypt-esxi-dns  1.0.0-0.0.0  Cnily03  CommunitySupported  2022-05-29
+letsencrypt-esxi-dns  2.0.0-0.0.0  Cnily03  CommunitySupported  2026-07-05
 
 $ cat /var/log/syslog.log | grep letsencrypt
-2022-05-29T20:01:46Z /etc/init.d/letsencrypt-dns: Running 'start' action
-2022-05-29T20:01:46Z /opt/letsencrypt-dns/renew.sh: Starting certificate renewal.
-2022-05-29T20:01:46Z /opt/letsencrypt-dns/renew.sh: Existing cert for example.com not issued by Let's Encrypt. Requesting a new one!
-2022-05-29T20:02:02Z /opt/letsencrypt-dns/renew.sh: Success: Obtained and installed a certificate from Let's Encrypt.
+2026-07-05T20:01:46Z /etc/init.d/letsencrypt-dns: Running 'start' action
+2026-07-05T20:01:46Z /opt/letsencrypt-dns/renew.sh: Starting certificate renewal.
+2026-07-05T20:01:46Z /opt/letsencrypt-dns/renew.sh: Existing cert for example.com not issued by Let's Encrypt. Requesting a new one!
+2026-07-05T20:02:02Z /opt/letsencrypt-dns/renew.sh: Success: Obtained and installed a certificate from Let's Encrypt.
 ```
 
 ### Web UI (= Embedded Host Client)
@@ -95,7 +95,7 @@ Removal Result
    Message: Operation finished successfully.
    Reboot Required: false
    VIBs Installed:
-   VIBs Removed: Cnily03_bootbank_letsencrypt-esxi-dns_1.0.0-0.0.0
+   VIBs Removed: Cnily03_bootbank_letsencrypt-esxi-dns_2.0.0-0.0.0
    VIBs Skipped:
 ```
 

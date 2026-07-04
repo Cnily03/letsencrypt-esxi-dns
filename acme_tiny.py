@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright Daniel Roesler, under MIT license, see LICENSE at github.com/diafygi/acme-tiny
-import argparse, subprocess, json, os, sys, base64, binascii, time, hashlib, re, copy, textwrap, logging
+import argparse, subprocess, json, os, sys, base64, binascii, time, hashlib, re, copy, textwrap, logging, ssl
 try:
     from urllib.request import urlopen, Request # Python 3
     from urllib.parse import urlencode # Python 3
@@ -15,8 +15,9 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.StreamHandler())
 LOGGER.setLevel(logging.INFO)
 
-def get_crt(account_key, csr, acme_dir=None, log=LOGGER, CA=DEFAULT_CA, disable_check=False, directory_url=DEFAULT_DIRECTORY_URL, contact=None, check_port=None, cloudflare_account_id=None, cloudflare_token=None, dns_propagation_seconds=120):
+def get_crt(account_key, csr, acme_dir=None, log=LOGGER, CA=DEFAULT_CA, disable_check=False, directory_url=DEFAULT_DIRECTORY_URL, contact=None, check_port=None, cloudflare_account_id=None, cloudflare_token=None, dns_propagation_seconds=120, ca_bundle=None):
     directory, acct_headers, alg, jwk = None, None, None, None # global variables
+    ca_bundle = ca_bundle or os.environ.get("SSL_CERT_FILE")
 
     # helper functions - base64 encode for jose spec
     def _b64(b):
@@ -30,10 +31,19 @@ def get_crt(account_key, csr, acme_dir=None, log=LOGGER, CA=DEFAULT_CA, disable_
             raise IOError("{0}\n{1}".format(err_msg, err))
         return out
 
+    def _urlopen(request):
+        if ca_bundle:
+            context = ssl.create_default_context(cafile=ca_bundle)
+            try:
+                return urlopen(request, context=context)
+            except TypeError: # pragma: no cover
+                pass
+        return urlopen(request)
+
     # helper function - make request and automatically parse json response
     def _do_request(url, data=None, err_msg="Error", depth=0):
         try:
-            resp = urlopen(Request(url, data=data, headers={"Content-Type": "application/jose+json", "User-Agent": "acme-tiny"}))
+            resp = _urlopen(Request(url, data=data, headers={"Content-Type": "application/jose+json", "User-Agent": "acme-tiny"}))
             resp_data, code, headers = resp.read().decode("utf8"), resp.getcode(), resp.headers
         except IOError as e:
             resp_data = e.read().decode("utf8") if hasattr(e, "read") else str(e)
@@ -75,7 +85,7 @@ def get_crt(account_key, csr, acme_dir=None, log=LOGGER, CA=DEFAULT_CA, disable_
         request = Request(url, data=data, headers=headers)
         request.get_method = lambda: method
         try:
-            resp = urlopen(request)
+            resp = _urlopen(request)
             resp_data, code = resp.read().decode("utf8"), resp.getcode()
         except IOError as e:
             resp_data = e.read().decode("utf8") if hasattr(e, "read") else str(e)

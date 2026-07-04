@@ -71,6 +71,13 @@ if [ -z "$CF_Token" ]; then
   exit
 fi
 
+if [ ! -r "$SSL_CERT_FILE" ]; then
+  log "Error: CA bundle not found: ${SSL_CERT_FILE}."
+  exit
+fi
+
+log "Using CA bundle: ${SSL_CERT_FILE}"
+
 # Add a cronjob for auto renewal. The script is run once a week on Sunday at 00:00
 if ! grep -q "$LOCALDIR/$LOCALSCRIPT" /var/spool/cron/crontabs/root; then
   kill -sighup "$(pidof crond)" 2>/dev/null
