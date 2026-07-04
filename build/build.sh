@@ -11,5 +11,5 @@ docker rmi -f letsencrypt-esxi 2> /dev/null
 rm -rf artifacts
 docker build -t letsencrypt-esxi -f build/Dockerfile .
 docker run -i -v "${PWD}"/artifacts:/artifacts letsencrypt-esxi sh << COMMANDS
-cp letsencrypt-esxi/build/w2c-letsencrypt-esxi* /artifacts
+cp letsencrypt-esxi/build/letsencrypt-esxi-dns* /artifacts
 COMMANDS

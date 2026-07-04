@@ -3,14 +3,14 @@
 # Copyright (c) Johannes Feichtner <johannes@web-wack.at>
 # Released under the GNU GPLv3 License.
 
-DOMAIN=$(hostname -f)
 LOCALDIR=$(dirname "$(readlink -f "$0")")
 LOCALSCRIPT=$(basename "$0")
 
-ACMEDIR="$LOCALDIR/.well-known/acme-challenge"
 DIRECTORY_URL="https://acme-v02.api.letsencrypt.org/directory"
 SSL_CERT_FILE="$LOCALDIR/ca-certificates.crt"
 RENEW_DAYS=30
+DNS_PROPAGATION_SECONDS=120
+ACME_ENV_FILE="${ACME_ENV_FILE:-}"
 
 ACCOUNTKEY="esxi_account.key"
 KEY="esxi.key"
@@ -19,9 +19,29 @@ CRT="esxi.crt"
 VMWARE_CRT="/etc/vmware/ssl/rui.crt"
 VMWARE_KEY="/etc/vmware/ssl/rui.key"
 
+if [ -z "$ACME_ENV_FILE" ]; then
+  if [ -n "$HOME" ]; then
+    ACME_ENV_FILE="$HOME/.acme.env"
+  else
+    ACME_ENV_FILE="/root/.acme.env"
+  fi
+fi
+
+if [ ! -r "$ACME_ENV_FILE" ] && [ -r "/.acme.env" ]; then
+  ACME_ENV_FILE="/.acme.env"
+fi
+
+if [ -r "$ACME_ENV_FILE" ]; then
+  . "$ACME_ENV_FILE"
+fi
+
+DOMAIN="${ESXI_DOMAIN:-$(hostname -f)}"
+
 if [ -r "$LOCALDIR/renew.cfg" ]; then
   . "$LOCALDIR/renew.cfg"
 fi
+
+CF_ACCOUNT_ID="${CF_ACCOUNT_ID:-$CF_Account_ID}"
 
 log() {
    echo "$@"
@@ -33,6 +53,21 @@ log "Starting certificate renewal.";
 # Preparation steps
 if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "${DOMAIN/.}" ]; then
   log "Error: Hostname ${DOMAIN} is no FQDN."
+  exit
+fi
+
+if [ -z "$ACME_EMAIL" ]; then
+  log "Error: ACME_EMAIL is not set. Put it in ${ACME_ENV_FILE}."
+  exit
+fi
+
+if [ -z "$CF_ACCOUNT_ID" ]; then
+  log "Error: CF_Account_ID is not set. Put it in ${ACME_ENV_FILE}."
+  exit
+fi
+
+if [ -z "$CF_Token" ]; then
+  log "Error: CF_Token is not set. Put it in ${ACME_ENV_FILE}."
   exit
 fi
 
@@ -65,11 +100,10 @@ if [ -e "$VMWARE_CRT" ]; then
 fi
 
 cd "$LOCALDIR" || exit
-mkdir -p "$ACMEDIR"
 
-# Route /.well-known/acme-challenge to port 8120
-if ! grep -q "acme-challenge" /etc/vmware/rhttpproxy/endpoints.conf; then
-  echo "/.well-known/acme-challenge local 8120 redirect allow" >> /etc/vmware/rhttpproxy/endpoints.conf
+# Remove the legacy http-01 proxy route if this host had an older version installed.
+if grep -q "acme-challenge" /etc/vmware/rhttpproxy/endpoints.conf; then
+  sed -i '/acme-challenge/d' /etc/vmware/rhttpproxy/endpoints.conf
   /etc/init.d/rhttpproxy restart
 fi
 
@@ -80,16 +114,19 @@ openssl genrsa -out "$KEY" 4096
 openssl req -new -sha256 -key "$KEY" -subj "/CN=$DOMAIN" -config "./openssl.cnf" > "$CSR"
 chmod 0400 "$ACCOUNTKEY" "$KEY"
 
-# Start HTTP server on port 8120 for HTTP validation
+# Allow outbound ACME and Cloudflare API requests.
 esxcli network firewall ruleset set -e true -r httpClient
-python -m "http.server" 8120 &
-HTTP_SERVER_PID=$!
 
 # Retrieve the certificate
 export SSL_CERT_FILE
-CERT=$(python ./acme_tiny.py --account-key "$ACCOUNTKEY" --csr "$CSR" --acme-dir "$ACMEDIR" --directory-url "$DIRECTORY_URL")
-
-kill -9 "$HTTP_SERVER_PID"
+CERT=$(python ./acme_tiny.py \
+  --account-key "$ACCOUNTKEY" \
+  --csr "$CSR" \
+  --directory-url "$DIRECTORY_URL" \
+  --contact "mailto:$ACME_EMAIL" \
+  --cloudflare-account-id "$CF_ACCOUNT_ID" \
+  --cloudflare-token "$CF_Token" \
+  --dns-propagation-seconds "$DNS_PROPAGATION_SECONDS")
 
 # If an error occurred during certificate issuance, $CERT will be empty
 if [ -n "$CERT" ] ; then

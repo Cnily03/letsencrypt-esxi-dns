@@ -3,8 +3,10 @@
 import argparse, subprocess, json, os, sys, base64, binascii, time, hashlib, re, copy, textwrap, logging
 try:
     from urllib.request import urlopen, Request # Python 3
+    from urllib.parse import urlencode # Python 3
 except ImportError: # pragma: no cover
     from urllib2 import urlopen, Request # Python 2
+    from urllib import urlencode # Python 2
 
 DEFAULT_CA = "https://acme-v02.api.letsencrypt.org" # DEPRECATED! USE DEFAULT_DIRECTORY_URL INSTEAD
 DEFAULT_DIRECTORY_URL = "https://acme-v02.api.letsencrypt.org/directory"
@@ -13,7 +15,7 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.StreamHandler())
 LOGGER.setLevel(logging.INFO)
 
-def get_crt(account_key, csr, acme_dir, log=LOGGER, CA=DEFAULT_CA, disable_check=False, directory_url=DEFAULT_DIRECTORY_URL, contact=None, check_port=None):
+def get_crt(account_key, csr, acme_dir=None, log=LOGGER, CA=DEFAULT_CA, disable_check=False, directory_url=DEFAULT_DIRECTORY_URL, contact=None, check_port=None, cloudflare_account_id=None, cloudflare_token=None, dns_propagation_seconds=120):
     directory, acct_headers, alg, jwk = None, None, None, None # global variables
 
     # helper functions - base64 encode for jose spec
@@ -60,6 +62,68 @@ def get_crt(account_key, csr, acme_dir, log=LOGGER, CA=DEFAULT_CA, disable_check
             return _do_request(url, data=data.encode('utf8'), err_msg=err_msg, depth=depth)
         except IndexError: # retry bad nonces (they raise IndexError)
             return _send_signed_request(url, payload, err_msg, depth=(depth + 1))
+
+    def _do_cloudflare_request(method, path, payload=None, params=None):
+        url = "https://api.cloudflare.com/client/v4{0}".format(path)
+        if params:
+            url = "{0}?{1}".format(url, urlencode(params))
+        data = None if payload is None else json.dumps(payload).encode("utf8")
+        headers = {
+            "Authorization": "Bearer {0}".format(cloudflare_token),
+            "Content-Type": "application/json",
+        }
+        request = Request(url, data=data, headers=headers)
+        request.get_method = lambda: method
+        try:
+            resp = urlopen(request)
+            resp_data, code = resp.read().decode("utf8"), resp.getcode()
+        except IOError as e:
+            resp_data = e.read().decode("utf8") if hasattr(e, "read") else str(e)
+            code = getattr(e, "code", None)
+        try:
+            result = json.loads(resp_data)
+        except ValueError:
+            result = {"success": False, "errors": [resp_data]}
+        if code not in [200, 201, 202, 204] or not result.get("success", False):
+            raise ValueError("Cloudflare API error:\nUrl: {0}\nResponse Code: {1}\nResponse: {2}".format(url, code, result))
+        return result
+
+    def _cloudflare_zone_for_domain(domain):
+        zones, page, total_pages = [], 1, 1
+        while page <= total_pages:
+            result = _do_cloudflare_request("GET", "/zones", params={
+                "account.id": cloudflare_account_id,
+                "per_page": 50,
+                "page": page,
+            })
+            zones.extend(result.get("result", []))
+            result_info = result.get("result_info", {})
+            total_pages = result_info.get("total_pages", 1)
+            page += 1
+        candidates = [z for z in zones if domain == z["name"] or domain.endswith("." + z["name"])]
+        if not candidates:
+            raise ValueError("Cloudflare zone not found for {0}".format(domain))
+        return sorted(candidates, key=lambda z: len(z["name"]), reverse=True)[0]
+
+    def _cloudflare_create_txt_record(domain, content):
+        validation_domain = domain[2:] if domain.startswith("*.") else domain
+        zone = _cloudflare_zone_for_domain(validation_domain)
+        record_name = "_acme-challenge.{0}".format(validation_domain)
+        log.info("Creating Cloudflare TXT record {0} in zone {1}...".format(record_name, zone["name"]))
+        result = _do_cloudflare_request("POST", "/zones/{0}/dns_records".format(zone["id"]), payload={
+            "type": "TXT",
+            "name": record_name,
+            "content": content,
+            "ttl": 120,
+        })
+        return zone["id"], result["result"]["id"], record_name
+
+    def _cloudflare_delete_txt_record(zone_id, record_id, record_name):
+        try:
+            log.info("Deleting Cloudflare TXT record {0}...".format(record_name))
+            _do_cloudflare_request("DELETE", "/zones/{0}/dns_records/{1}".format(zone_id, record_id))
+        except ValueError as e:
+            log.warning("Warning: failed to delete Cloudflare TXT record {0}: {1}".format(record_name, e))
 
     # helper function - poll until complete
     def _poll_until_not(url, pending_statuses, err_msg):
@@ -131,27 +195,42 @@ def get_crt(account_key, csr, acme_dir, log=LOGGER, CA=DEFAULT_CA, disable_check
             continue
         log.info("Verifying {0}...".format(domain))
 
-        # find the http-01 challenge and write the challenge file
-        challenge = [c for c in authorization['challenges'] if c['type'] == "http-01"][0]
-        token = re.sub(r"[^A-Za-z0-9_\-]", "_", challenge['token'])
-        keyauthorization = "{0}.{1}".format(token, thumbprint)
-        wellknown_path = os.path.join(acme_dir, token)
-        with open(wellknown_path, "w") as wellknown_file:
-            wellknown_file.write(keyauthorization)
+        if cloudflare_token:
+            challenge = [c for c in authorization['challenges'] if c['type'] == "dns-01"][0]
+            keyauthorization = "{0}.{1}".format(challenge['token'], thumbprint)
+            dns_value = _b64(hashlib.sha256(keyauthorization.encode("utf8")).digest())
+            zone_id, record_id, record_name = _cloudflare_create_txt_record(domain, dns_value)
+            try:
+                log.info("Waiting {0}s for DNS propagation...".format(dns_propagation_seconds))
+                time.sleep(dns_propagation_seconds)
+                _send_signed_request(challenge['url'], {}, "Error submitting challenges: {0}".format(domain))
+                authorization = _poll_until_not(auth_url, ["pending"], "Error checking challenge status for {0}".format(domain))
+                if authorization['status'] != "valid":
+                    raise ValueError("Challenge did not pass for {0}: {1}".format(domain, authorization))
+            finally:
+                _cloudflare_delete_txt_record(zone_id, record_id, record_name)
+        else:
+            # find the http-01 challenge and write the challenge file
+            challenge = [c for c in authorization['challenges'] if c['type'] == "http-01"][0]
+            token = re.sub(r"[^A-Za-z0-9_\-]", "_", challenge['token'])
+            keyauthorization = "{0}.{1}".format(token, thumbprint)
+            wellknown_path = os.path.join(acme_dir, token)
+            with open(wellknown_path, "w") as wellknown_file:
+                wellknown_file.write(keyauthorization)
 
-        # check that the file is in place
-        try:
-            wellknown_url = "http://{0}{1}/.well-known/acme-challenge/{2}".format(domain, "" if check_port is None else ":{0}".format(check_port), token)
-            assert (disable_check or _do_request(wellknown_url)[0] == keyauthorization)
-        except (AssertionError, ValueError) as e:
-            raise ValueError("Wrote file to {0}, but couldn't download {1}: {2}".format(wellknown_path, wellknown_url, e))
+            # check that the file is in place
+            try:
+                wellknown_url = "http://{0}{1}/.well-known/acme-challenge/{2}".format(domain, "" if check_port is None else ":{0}".format(check_port), token)
+                assert (disable_check or _do_request(wellknown_url)[0] == keyauthorization)
+            except (AssertionError, ValueError) as e:
+                raise ValueError("Wrote file to {0}, but couldn't download {1}: {2}".format(wellknown_path, wellknown_url, e))
 
-        # say the challenge is done
-        _send_signed_request(challenge['url'], {}, "Error submitting challenges: {0}".format(domain))
-        authorization = _poll_until_not(auth_url, ["pending"], "Error checking challenge status for {0}".format(domain))
-        if authorization['status'] != "valid":
-            raise ValueError("Challenge did not pass for {0}: {1}".format(domain, authorization))
-        os.remove(wellknown_path)
+            # say the challenge is done
+            _send_signed_request(challenge['url'], {}, "Error submitting challenges: {0}".format(domain))
+            authorization = _poll_until_not(auth_url, ["pending"], "Error checking challenge status for {0}".format(domain))
+            if authorization['status'] != "valid":
+                raise ValueError("Challenge did not pass for {0}: {1}".format(domain, authorization))
+            os.remove(wellknown_path)
         log.info("{0} verified!".format(domain))
 
     # finalize the order with the csr
@@ -177,22 +256,29 @@ def main(argv=None):
             It will need to be run on your server and have access to your private account key, so PLEASE READ THROUGH IT!
             It's only ~200 lines, so it won't take long.
 
-            Example Usage: python acme_tiny.py --account-key ./account.key --csr ./domain.csr --acme-dir /usr/share/nginx/html/.well-known/acme-challenge/ > signed_chain.crt
+            Example Usage: python acme_tiny.py --account-key ./account.key --csr ./domain.csr --cloudflare-account-id ACCOUNT_ID --cloudflare-token TOKEN > signed_chain.crt
             """)
     )
     parser.add_argument("--account-key", required=True, help="path to your Let's Encrypt account private key")
     parser.add_argument("--csr", required=True, help="path to your certificate signing request")
-    parser.add_argument("--acme-dir", required=True, help="path to the .well-known/acme-challenge/ directory")
+    parser.add_argument("--acme-dir", default=None, help="path to the .well-known/acme-challenge/ directory")
     parser.add_argument("--quiet", action="store_const", const=logging.ERROR, help="suppress output except for errors")
     parser.add_argument("--disable-check", default=False, action="store_true", help="disable checking if the challenge file is hosted correctly before telling the CA")
     parser.add_argument("--directory-url", default=DEFAULT_DIRECTORY_URL, help="certificate authority directory url, default is Let's Encrypt")
     parser.add_argument("--ca", default=DEFAULT_CA, help="DEPRECATED! USE --directory-url INSTEAD!")
     parser.add_argument("--contact", metavar="CONTACT", default=None, nargs="*", help="Contact details (e.g. mailto:aaa@bbb.com) for your account-key")
     parser.add_argument("--check-port", metavar="PORT", default=None, help="what port to use when self-checking the challenge file, default is port 80")
+    parser.add_argument("--cloudflare-account-id", default=None, help="Cloudflare account ID for dns-01 validation")
+    parser.add_argument("--cloudflare-token", default=None, help="Cloudflare API token for dns-01 validation")
+    parser.add_argument("--dns-propagation-seconds", default=120, type=int, help="seconds to wait after creating DNS challenge records")
 
     args = parser.parse_args(argv)
+    if not args.cloudflare_token and not args.acme_dir:
+        parser.error("--acme-dir is required unless --cloudflare-token is used")
+    if args.cloudflare_token and not args.cloudflare_account_id:
+        parser.error("--cloudflare-account-id is required when --cloudflare-token is used")
     LOGGER.setLevel(args.quiet or LOGGER.level)
-    signed_crt = get_crt(args.account_key, args.csr, args.acme_dir, log=LOGGER, CA=args.ca, disable_check=args.disable_check, directory_url=args.directory_url, contact=args.contact, check_port=args.check_port)
+    signed_crt = get_crt(args.account_key, args.csr, args.acme_dir, log=LOGGER, CA=args.ca, disable_check=args.disable_check, directory_url=args.directory_url, contact=args.contact, check_port=args.check_port, cloudflare_account_id=args.cloudflare_account_id, cloudflare_token=args.cloudflare_token, dns_propagation_seconds=args.dns_propagation_seconds)
     sys.stdout.write(signed_crt)
 
 if __name__ == "__main__": # pragma: no cover

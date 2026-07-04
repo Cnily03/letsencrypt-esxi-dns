@@ -9,5 +9,5 @@ build:
   artifacts:
     name: "$CI_PROJECT_NAME-$CI_COMMIT_TAG"
     paths:
-      - build/w2c-letsencrypt-esxi.vib
-      - build/w2c-letsencrypt-esxi-offline-bundle.zip
+      - build/letsencrypt-esxi-dns.vib
+      - build/letsencrypt-esxi-dns-offline-bundle.zip

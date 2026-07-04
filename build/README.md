@@ -1,4 +1,4 @@
-# Build w2c-letsencrypt-esxi VIB & Offline Bundle
+# Build letsencrypt-esxi-dns VIB & Offline Bundle
 
 The `build.sh` bash script includes the commands needed to generate the VIB and Offline Bundle files. It relies on the [lamw/vibauthor](https://hub.docker.com/r/lamw/vibauthor/) Docker container and uses the files in this repository.
 
@@ -21,25 +21,25 @@ Step 2/4 : COPY . letsencrypt-esxi
 Step 3/4 : RUN /bin/bash letsencrypt-esxi/build/create_vib.sh
  ---> Running in 3f6f149cfed4
 WARNING: extensibility rules check failed, but was ignored because of --force.
-VIB (web-wack-creations_bootbank_w2c-letsencrypt-esxi_1.0.0-0.0.0) failed a check of extensibility rules for acceptance level 'community': [u'(line 23: col 0) Element vib failed to validate content'].
-Successfully created w2c-letsencrypt-esxi.vib.
-Successfully created w2c-letsencrypt-esxi-offline-bundle.zip.
-**** Info for VIB: w2c-letsencrypt-esxi.vib ****
+VIB (web-wack-creations_bootbank_letsencrypt-esxi-dns_1.0.0-0.0.0) failed a check of extensibility rules for acceptance level 'community': [u'(line 23: col 0) Element vib failed to validate content'].
+Successfully created letsencrypt-esxi-dns.vib.
+Successfully created letsencrypt-esxi-dns-offline-bundle.zip.
+**** Info for VIB: letsencrypt-esxi-dns.vib ****
 VIB Format:             2.0.0
-VIB ID:                 web-wack-creations_bootbank_w2c-letsencrypt-esxi_1.0.0-0.0.0
+VIB ID:                 web-wack-creations_bootbank_letsencrypt-esxi-dns_1.0.0-0.0.0
 VIB Type:               bootbank
-Name:                   w2c-letsencrypt-esxi
+Name:                   letsencrypt-esxi-dns
 Version:                1.0.0-0.0.0
 Vendor:                 web-wack-creations
 Summary:                [Fling] Let's Encrypt for ESXi
 Description:            Let's Encrypt for ESXi
 Creation Date:          2022-05-29 15:03:02+00:00
 Provides:
-        w2c-letsencrypt-esxi = 1.0.0-0.0.0
+        letsencrypt-esxi-dns = 1.0.0-0.0.0
 Depends:
 Conflicts:
 Replaces:
-        w2c-letsencrypt-esxi << 1.0.0-0.0.0
+        letsencrypt-esxi-dns << 1.0.0-0.0.0
 Software Tags:          []
 MaintenanceMode:        remove/update: False, installation: False
 Signed:                 False
@@ -68,8 +68,8 @@ Upon success, there should be a new directory named `artifacts` which contains t
 ```bash
 ls -l ../artifacts
 
--rw-r--r-- 1 root root 30K May 29 15:04 w2c-letsencrypt-esxi-offline-bundle.zip
--rw-r--r-- 1 root root 28K May 29 15:04 w2c-letsencrypt-esxi.vib
+-rw-r--r-- 1 root root 30K May 29 15:04 letsencrypt-esxi-dns-offline-bundle.zip
+-rw-r--r-- 1 root root 28K May 29 15:04 letsencrypt-esxi-dns.vib
 ```
 
 ## Possible Pitfalls

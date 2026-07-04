@@ -36,16 +36,16 @@ mkdir -p ${TEMP_DIR}
 mkdir -p ${VIB_PAYLOAD_DIR}
 
 # Create target directory
-BIN_DIR=${VIB_PAYLOAD_DIR}/opt/w2c-letsencrypt
+BIN_DIR=${VIB_PAYLOAD_DIR}/opt/letsencrypt-dns
 INIT_DIR=${VIB_PAYLOAD_DIR}/etc/init.d
 mkdir -p ${BIN_DIR} ${INIT_DIR}
 
 # Copy files to the corresponding locations
 cp ../* ${BIN_DIR} 2>/dev/null
-cp ../w2c-letsencrypt ${INIT_DIR}
+cp ../letsencrypt-dns ${INIT_DIR}
 
 # Ensure that shell scripts are executable
-chmod +x ${INIT_DIR}/w2c-letsencrypt ${BIN_DIR}/renew.sh
+chmod +x ${INIT_DIR}/letsencrypt-dns ${BIN_DIR}/renew.sh
 
 # Create tgz with payload
 tar czf ${TEMP_DIR}/payload1 -C ${VIB_PAYLOAD_DIR} etc opt
@@ -57,17 +57,17 @@ PAYLOAD_SHA256=$(sha256sum ${TEMP_DIR}/payload1 | awk '{print $1}')
 PAYLOAD_SHA256_ZCAT=$(zcat ${TEMP_DIR}/payload1 | sha256sum | awk '{print $1}')
 PAYLOAD_SHA1_ZCAT=$(zcat ${TEMP_DIR}/payload1 | sha1sum | awk '{print $1}')
 
-cat > ${VIB_DESC_FILE} << __W2C__
+cat > ${VIB_DESC_FILE} << EOF
 <vib version="5.0">
   <type>bootbank</type>
-  <name>w2c-letsencrypt-esxi</name>
+  <name>letsencrypt-esxi-dns</name>
   <version>${VIB_TAG}-0.0.0</version>
   <vendor>web-wack-creations</vendor>
   <summary>Let's Encrypt for ESXi</summary>
   <description>Let's Encrypt for ESXi</description>
   <release-date>${VIB_DATE}</release-date>
   <urls>
-    <url key="letsencrypt-esxi">https://github.com/w2c/letsencrypt-esxi</url>
+    <url key="letsencrypt-esxi">https://github.com/Cnily03/letsencrypt-esxi</url>
   </urls>
   <relationships>
     <depends/>
@@ -97,17 +97,17 @@ ${PAYLOAD_FILES}
     </payload>
   </payloads>
 </vib>
-__W2C__
+EOF
 
 # Create letsencrypt-esxi VIB
 touch ${TEMP_DIR}/sig.pkcs7
-ar r w2c-letsencrypt-esxi.vib ${TEMP_DIR}/descriptor.xml ${TEMP_DIR}/sig.pkcs7 ${TEMP_DIR}/payload1
+ar r letsencrypt-esxi-dns.vib ${TEMP_DIR}/descriptor.xml ${TEMP_DIR}/sig.pkcs7 ${TEMP_DIR}/payload1
 
 # Create the offline bundle
-PYTHONPATH=/opt/vmware/vibtools-6.0.0-847598/bin python -c "import vibauthorImpl; vibauthorImpl.CreateOfflineBundle('w2c-letsencrypt-esxi.vib', 'w2c-letsencrypt-esxi-offline-bundle.zip', True)"
+PYTHONPATH=/opt/vmware/vibtools-6.0.0-847598/bin python -c "import vibauthorImpl; vibauthorImpl.CreateOfflineBundle('letsencrypt-esxi-dns.vib', 'letsencrypt-esxi-dns-offline-bundle.zip', True)"
 
 # Show some details about what we have just created
-vibauthor -i -v w2c-letsencrypt-esxi.vib
+vibauthor -i -v letsencrypt-esxi-dns.vib
 
 # Remove letsencrypt-esxi temp dir
 rm -rf ${TEMP_DIR}
