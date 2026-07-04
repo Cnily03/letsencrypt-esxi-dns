@@ -113,14 +113,32 @@ esxcli network firewall ruleset set -e true -r httpClient
 
 # Retrieve the certificate
 export SSL_CERT_FILE
-CERT=$(python ./acme_tiny.py \
+ACME_CERT_OUTPUT="/tmp/letsencrypt-dns-cert.$$"
+ACME_ERROR_OUTPUT="/tmp/letsencrypt-dns-acme-error.$$"
+
+python ./acme_tiny.py \
   --account-key "$ACCOUNTKEY" \
   --csr "$CSR" \
   --directory-url "$DIRECTORY_URL" \
   --contact "mailto:$ACME_EMAIL" \
   --cloudflare-account-id "$CF_ACCOUNT_ID" \
   --cloudflare-token "$CF_Token" \
-  --dns-propagation-seconds "$DNS_PROPAGATION_SECONDS")
+  --dns-propagation-seconds "$DNS_PROPAGATION_SECONDS" \
+  > "$ACME_CERT_OUTPUT" 2> "$ACME_ERROR_OUTPUT"
+ACME_STATUS=$?
+
+if [ -s "$ACME_ERROR_OUTPUT" ]; then
+  while IFS= read -r line; do
+    [ -n "$line" ] && log "acme_tiny: $line"
+  done < "$ACME_ERROR_OUTPUT"
+fi
+
+CERT=$(cat "$ACME_CERT_OUTPUT")
+rm -f "$ACME_CERT_OUTPUT" "$ACME_ERROR_OUTPUT"
+
+if [ "$ACME_STATUS" -ne 0 ]; then
+  log "Error: ACME client exited with status ${ACME_STATUS}."
+fi
 
 # If an error occurred during certificate issuance, $CERT will be empty
 if [ -n "$CERT" ] ; then
