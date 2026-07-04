@@ -2,10 +2,10 @@
 #
 # Copyright (c) Johannes Feichtner <johannes@web-wack.at>
 #
-# Script to build letsencrypt-esxi VIB using VIB Author
+# Script to build letsencrypt-esxi-dns VIB using VIB Author
 
 LOCALDIR=$(dirname "$(readlink -f "$0")")
-TEMP_DIR=/tmp/letsencrypt-esxi-$$
+TEMP_DIR=/tmp/letsencrypt-esxi-dns-$$
 
 # Ensure prerequisites are installed
 git version > /dev/null 2>&1
@@ -30,7 +30,7 @@ VIB_TAG=$(git describe --tags --abbrev=0 --match '[0-9]*.[0-9]*.[0-9]*' 2> /dev/
 VIB_DESC_FILE=${TEMP_DIR}/descriptor.xml
 VIB_PAYLOAD_DIR=${TEMP_DIR}/payloads/payload1
 
-# Create letsencrypt-esxi temp dir
+# Create letsencrypt-esxi-dns temp dir
 mkdir -p ${TEMP_DIR}
 # Create VIB spec payload directory
 mkdir -p ${VIB_PAYLOAD_DIR}
@@ -50,7 +50,7 @@ chmod +x ${INIT_DIR}/letsencrypt-dns ${BIN_DIR}/renew.sh
 # Create tgz with payload
 tar czf ${TEMP_DIR}/payload1 -C ${VIB_PAYLOAD_DIR} etc opt
 
-# Create letsencrypt-esxi VIB descriptor.xml
+# Create letsencrypt-esxi-dns VIB descriptor.xml
 PAYLOAD_FILES=$(tar tf ${TEMP_DIR}/payload1 | grep -v -E '/$' | sed -e 's/^/    <file>/' -e 's/$/<\/file>/')
 PAYLOAD_SIZE=$(stat -c %s ${TEMP_DIR}/payload1)
 PAYLOAD_SHA256=$(sha256sum ${TEMP_DIR}/payload1 | awk '{print $1}')
@@ -62,12 +62,12 @@ cat > ${VIB_DESC_FILE} << EOF
   <type>bootbank</type>
   <name>letsencrypt-esxi-dns</name>
   <version>${VIB_TAG}-0.0.0</version>
-  <vendor>web-wack-creations</vendor>
-  <summary>Let's Encrypt for ESXi</summary>
-  <description>Let's Encrypt for ESXi</description>
+  <vendor>Cnily03</vendor>
+  <summary>Let's Encrypt DNS for ESXi</summary>
+  <description>Let's Encrypt DNS-01 certificate renewal for ESXi</description>
   <release-date>${VIB_DATE}</release-date>
   <urls>
-    <url key="letsencrypt-esxi">https://github.com/Cnily03/letsencrypt-esxi</url>
+    <url key="letsencrypt-esxi-dns">https://github.com/Cnily03/letsencrypt-esxi-dns</url>
   </urls>
   <relationships>
     <depends/>
@@ -99,7 +99,7 @@ ${PAYLOAD_FILES}
 </vib>
 EOF
 
-# Create letsencrypt-esxi VIB
+# Create letsencrypt-esxi-dns VIB
 touch ${TEMP_DIR}/sig.pkcs7
 ar r letsencrypt-esxi-dns.vib ${TEMP_DIR}/descriptor.xml ${TEMP_DIR}/sig.pkcs7 ${TEMP_DIR}/payload1
 
@@ -109,5 +109,5 @@ PYTHONPATH=/opt/vmware/vibtools-6.0.0-847598/bin python -c "import vibauthorImpl
 # Show some details about what we have just created
 vibauthor -i -v letsencrypt-esxi-dns.vib
 
-# Remove letsencrypt-esxi temp dir
+# Remove letsencrypt-esxi-dns temp dir
 rm -rf ${TEMP_DIR}

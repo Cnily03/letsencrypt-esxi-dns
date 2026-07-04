@@ -4,7 +4,7 @@
 # Released under the GNU GPLv3 License.
 #
 # chkconfig: on 99 99
-# description: Letsencrypt for ESXi
+# description: Letsencrypt DNS for ESXi
 #
 
 export PATH=/sbin:/usr/sbin:/bin:/usr/bin
@@ -24,7 +24,6 @@ for action in "$@"; do
 
       remove)
          sed -i '/\/opt\/letsencrypt-dns/d' /var/spool/cron/crontabs/root
-         sed -i '/acme-challenge/d' /etc/vmware/rhttpproxy/endpoints.conf
          /sbin/generate-certificates
          for s in /etc/init.d/*; do if $s | grep ssl_reset > /dev/null; then $s ssl_reset; fi; done
          ;;

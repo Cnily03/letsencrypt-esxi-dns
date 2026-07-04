@@ -9,28 +9,28 @@ Here is a sample output of the script:
 ```bash
 /bin/bash ./build.sh
 
-Untagged: letsencrypt-esxi:latest
+Untagged: letsencrypt-esxi-dns:latest
 Deleted: sha256:3009ff3662db9c3b60157bc0fff1a0c936ec6e301103c5efc50eca113c744b5f
 Deleted: sha256:daff819de772ed33d7de07701d8235453872365586a49c503f5194555424cda1
 Deleted: sha256:e0f946d4136a08d7d87bbce58af17226b019cbd97f3fec018861f155ded84257
 Sending build context to Docker daemon  1.261MB
 Step 1/4 : FROM lamw/vibauthor
  ---> a673ffe4ba43
-Step 2/4 : COPY . letsencrypt-esxi
+Step 2/4 : COPY . letsencrypt-esxi-dns
  ---> 6197d7c06029
-Step 3/4 : RUN /bin/bash letsencrypt-esxi/build/create_vib.sh
+Step 3/4 : RUN /bin/bash letsencrypt-esxi-dns/build/create_vib.sh
  ---> Running in 3f6f149cfed4
 WARNING: extensibility rules check failed, but was ignored because of --force.
-VIB (web-wack-creations_bootbank_letsencrypt-esxi-dns_1.0.0-0.0.0) failed a check of extensibility rules for acceptance level 'community': [u'(line 23: col 0) Element vib failed to validate content'].
+VIB (Cnily03_bootbank_letsencrypt-esxi-dns_1.0.0-0.0.0) failed a check of extensibility rules for acceptance level 'community': [u'(line 23: col 0) Element vib failed to validate content'].
 Successfully created letsencrypt-esxi-dns.vib.
 Successfully created letsencrypt-esxi-dns-offline-bundle.zip.
 **** Info for VIB: letsencrypt-esxi-dns.vib ****
 VIB Format:             2.0.0
-VIB ID:                 web-wack-creations_bootbank_letsencrypt-esxi-dns_1.0.0-0.0.0
+VIB ID:                 Cnily03_bootbank_letsencrypt-esxi-dns_1.0.0-0.0.0
 VIB Type:               bootbank
 Name:                   letsencrypt-esxi-dns
 Version:                1.0.0-0.0.0
-Vendor:                 web-wack-creations
+Vendor:                 Cnily03
 Summary:                [Fling] Let's Encrypt for ESXi
 Description:            Let's Encrypt for ESXi
 Creation Date:          2022-05-29 15:03:02+00:00
@@ -60,7 +60,7 @@ Step 4/4 : CMD ["/bin/bash"]
 Removing intermediate container fc567d964e69
  ---> 5c3b069e2f7a
 Successfully built 5c3b069e2f7a
-Successfully tagged letsencrypt-esxi:latest
+Successfully tagged letsencrypt-esxi-dns:latest
 ```
 
 Upon success, there should be a new directory named `artifacts` which contains the resulting VIB and Offline Bundle files.

@@ -41,20 +41,20 @@ export ESXI_DOMAIN="example.com"
 ### SSH on ESXi
 
 ```bash
-$ wget -O /tmp/letsencrypt-esxi-dns.vib https://github.com/Cnily03/letsencrypt-esxi/releases/latest/download/letsencrypt-esxi-dns.vib
+$ wget -O /tmp/letsencrypt-esxi-dns.vib https://github.com/Cnily03/letsencrypt-esxi-dns/releases/latest/download/letsencrypt-esxi-dns.vib
 
 $ esxcli software vib install -v /tmp/letsencrypt-esxi-dns.vib -f
 Installation Result
    Message: Operation finished successfully.
    Reboot Required: false
-   VIBs Installed: web-wack-creations_bootbank_letsencrypt-esxi-dns_1.0.0-0.0.0
+   VIBs Installed: Cnily03_bootbank_letsencrypt-esxi-dns_1.0.0-0.0.0
    VIBs Removed:
    VIBs Skipped:
 
-$ esxcli software vib list | grep letsencrypt-dns
-letsencrypt-esxi-dns  1.0.0-0.0.0  web-wack-creations  CommunitySupported  2022-05-29
+$ esxcli software vib list | grep letsencrypt
+letsencrypt-esxi-dns  1.0.0-0.0.0  Cnily03  CommunitySupported  2022-05-29
 
-$ cat /var/log/syslog.log | grep letsencrypt-dns
+$ cat /var/log/syslog.log | grep letsencrypt
 2022-05-29T20:01:46Z /etc/init.d/letsencrypt-dns: Running 'start' action
 2022-05-29T20:01:46Z /opt/letsencrypt-dns/renew.sh: Starting certificate renewal.
 2022-05-29T20:01:46Z /opt/letsencrypt-dns/renew.sh: Existing cert for example.com not issued by Let's Encrypt. Requesting a new one!
@@ -63,10 +63,10 @@ $ cat /var/log/syslog.log | grep letsencrypt-dns
 
 ### Web UI (= Embedded Host Client)
 
-1. _Storage -> Datastores:_ Use the Datastore browser to upload the [VIB file](https://github.com/Cnily03/letsencrypt-esxi/releases/latest/download/letsencrypt-esxi-dns.vib) to a datastore path of your choice.
+1. _Storage -> Datastores:_ Use the Datastore browser to upload the [VIB file](https://github.com/Cnily03/letsencrypt-esxi-dns/releases/latest/download/letsencrypt-esxi-dns.vib) to a datastore path of your choice.
 2. _Manage -> Security & users:_ Set the acceptance level of your host to _Community_.
 3. _Manage -> Packages:_ Switch to the list of installed packages, click on _Install update_ and enter the absolute path on the datastore where your just uploaded VIB file resides.
-4. While the VIB is installed, ESXi requests a certificate from Let's Encrypt. If you reload the Web UI afterwards, the newly requested certificate should already be active. If not, see the [Wiki](https://github.com/Cnily03/letsencrypt-esxi/wiki) for troubleshooting.
+4. While the VIB is installed, ESXi requests a certificate from Let's Encrypt. If you reload the Web UI afterwards, the newly requested certificate should already be active. If not, see the [Wiki](https://github.com/Cnily03/letsencrypt-esxi-dns/wiki) for troubleshooting.
 
 ### Optional Configuration
 
@@ -95,11 +95,11 @@ Removal Result
    Message: Operation finished successfully.
    Reboot Required: false
    VIBs Installed:
-   VIBs Removed: web-wack-creations_bootbank_letsencrypt-esxi-dns_1.0.0-0.0.0
+   VIBs Removed: Cnily03_bootbank_letsencrypt-esxi-dns_1.0.0-0.0.0
    VIBs Skipped:
 ```
 
-This action will purge `letsencrypt-esxi-dns`, undo the cronjob and remove any legacy HTTP challenge proxy route before calling `/sbin/generate-certificates` to generate and install a new, self-signed certificate.
+This action will purge `letsencrypt-esxi-dns`, undo the cronjob and call `/sbin/generate-certificates` to generate and install a new, self-signed certificate.
 
 ## Usage
 
@@ -185,7 +185,7 @@ vvold is not running.
 
 ## Troubleshooting
 
-See the [Wiki](https://github.com/Cnily03/letsencrypt-esxi/wiki) for possible pitfalls and solutions.
+See the [Wiki](https://github.com/Cnily03/letsencrypt-esxi-dns/wiki) for possible pitfalls and solutions.
 
 ## License
 

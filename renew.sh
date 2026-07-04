@@ -101,12 +101,6 @@ fi
 
 cd "$LOCALDIR" || exit
 
-# Remove the legacy http-01 proxy route if this host had an older version installed.
-if grep -q "acme-challenge" /etc/vmware/rhttpproxy/endpoints.conf; then
-  sed -i '/acme-challenge/d' /etc/vmware/rhttpproxy/endpoints.conf
-  /etc/init.d/rhttpproxy restart
-fi
-
 # Cert Request
 [ ! -r "$ACCOUNTKEY" ] && openssl genrsa 4096 > "$ACCOUNTKEY"
 
