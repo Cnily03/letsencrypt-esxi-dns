@@ -67,7 +67,7 @@ cat > ${VIB_DESC_FILE} << EOF
   <description>Let's Encrypt for ESXi</description>
   <release-date>${VIB_DATE}</release-date>
   <urls>
-    <url key="letsencrypt-esxi">https://github.com/Cnily03/letsencrypt-esxi</url>
+    <url key="letsencrypt-esxi">https://github.com/Cnily03/letsencrypt-esxi-dns</url>
   </urls>
   <relationships>
     <depends/>
